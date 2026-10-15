@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="chat-screen">
+    <header class="chat-header">
+        <h2>Свои</h2>
+        <span class="online-count">{{ users|length }} онлайн</span>
+        <a href="{{ url_for('logout') }}" class="logout">Выйти</a>
+    </header>
+
+    <main class="messages" id="messages">
+        {% for msg in messages %}
+            <div class="message">
+                <span class="msg-user">{{ msg.user.username }}</span>
+                <span class="msg-text">{{ msg.text }}</span>
+                <span class="msg-time">{{ msg.timestamp.strftime('%H:%M') }}</span>
+            </div>
+        {% endfor %}
+    </main>
+
+    <form class="message-form" id="message-form">
+        <input type="text" id="message-input" placeholder="Сообщение..." autocomplete="off">
+        <button type="submit">→</button>
+    </form>
+</div>
+{% endblock %}
