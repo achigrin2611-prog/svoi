@@ -1,6 +1,9 @@
 // ============ ID ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ============
 window.currentUserId = parseInt(document.getElementById('messages')?.dataset.currentUser) || null;
 
+// ============ ПЕРЕМЕННАЯ ДЛЯ ОТВЕТА ============
+let replyingTo = null;
+
 // ============ SOCKET IO ============
 const socket = io();
 
@@ -15,9 +18,15 @@ if (formEl) {
         const text = inputEl.value.trim();
         if (!text) return;
 
-        socket.emit('send_message', { text: text });
+        const data = { text: text };
+        if (replyingTo) {
+            data.reply_to_id = replyingTo.id;
+        }
+
+        socket.emit('send_message', data);
         inputEl.value = '';
         inputEl.focus();
+        cancelReply();
     });
 }
 
@@ -30,7 +39,19 @@ socket.on('new_message', (data) => {
     msg.dataset.messageId = data.id;
     msg.dataset.userId = data.user_id;
     msg.setAttribute('oncontextmenu', `showMessageMenu(event, ${data.id}, ${data.user_id}); return false;`);
+
+    let replyHTML = '';
+    if (data.reply_to_id) {
+        replyHTML = `
+            <div class="reply-quote" onclick="scrollToMessage(${data.reply_to_id})">
+                <span class="reply-user">${escapeHtml(data.reply_to_user || '')}</span>
+                <span class="reply-text">${escapeHtml(data.reply_to_text || '')}</span>
+            </div>
+        `;
+    }
+
     msg.innerHTML = `
+        ${replyHTML}
         <span class="msg-user">${escapeHtml(data.username)}</span>
         <span class="msg-text" id="text-${data.id}">${escapeHtml(data.text)}</span>
         <span class="msg-time">
@@ -255,6 +276,52 @@ socket.on('message_edited', (data) => {
         editedMark.textContent = '(изменено)';
     }
 });
+
+// ============ ОТВЕТЫ НА СООБЩЕНИЯ ============
+function replyToMessage() {
+    if (!menuMessageId) return;
+
+    const msg = document.querySelector(`.message[data-message-id="${menuMessageId}"]`);
+    if (!msg) return;
+
+    const textEl = msg.querySelector('.msg-text');
+    const userEl = msg.querySelector('.msg-user');
+    const text = textEl ? textEl.textContent : '';
+    const user = userEl ? userEl.textContent : '';
+
+    replyingTo = {
+        id: menuMessageId,
+        user: user,
+        text: text
+    };
+
+    const preview = document.getElementById('reply-preview');
+    document.getElementById('reply-preview-user').textContent = user + ':';
+    document.getElementById('reply-preview-text').textContent = text.slice(0, 60) + (text.length > 60 ? '...' : '');
+    preview.style.display = 'flex';
+
+    inputEl.focus();
+
+    document.getElementById('message-menu').style.display = 'none';
+    menuMessageId = null;
+}
+
+function cancelReply() {
+    replyingTo = null;
+    document.getElementById('reply-preview').style.display = 'none';
+}
+
+function scrollToMessage(messageId) {
+    const msg = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    if (msg) {
+        msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        msg.style.transition = 'background 0.5s';
+        msg.style.background = 'rgba(124, 92, 255, 0.3)';
+        setTimeout(() => {
+            msg.style.background = '';
+        }, 1000);
+    }
+}
 
 // ============ ДОЛГИЙ ТАП ДЛЯ МОБИЛЬНЫХ ============
 function attachLongPress(msg) {

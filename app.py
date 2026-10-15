@@ -52,6 +52,9 @@ class Message(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'))
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
     is_edited = db.Column(db.Boolean, default=False)
+    reply_to_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
+    reply_to_text = db.Column(db.Text, nullable=True)
+    reply_to_user = db.Column(db.String(50), nullable=True)
     user = db.relationship('User', backref='messages')
     reactions = db.relationship('Reaction', backref='message', cascade='all, delete-orphan')
 
@@ -158,10 +161,23 @@ def handle_message(data):
     if not current_user.is_authenticated:
         return
 
+    reply_to_id = data.get('reply_to_id')
+    reply_to_text = None
+    reply_to_user = None
+
+    if reply_to_id:
+        original = Message.query.get(reply_to_id)
+        if original:
+            reply_to_text = original.text[:100]  # первые 100 символов
+            reply_to_user = original.user.username
+
     msg = Message(
         text=data['text'],
         user_id=current_user.id,
-        group_id=current_user.group_id
+        group_id=current_user.group_id,
+        reply_to_id=reply_to_id,
+        reply_to_text=reply_to_text,
+        reply_to_user=reply_to_user
     )
     db.session.add(msg)
     db.session.commit()
@@ -171,7 +187,10 @@ def handle_message(data):
         'username': current_user.username,
         'text': data['text'],
         'timestamp': msg.timestamp.strftime('%H:%M'),
-        'user_id': current_user.id
+        'user_id': current_user.id,
+        'reply_to_id': reply_to_id,
+        'reply_to_text': reply_to_text,
+        'reply_to_user': reply_to_user
     }, broadcast=True)
 
 
