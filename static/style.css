@@ -287,33 +287,51 @@ body {
 
 .react-btn {
     position: absolute;
-    top: 8px;
-    right: -32px;
+    top: 50%;
+    right: -40px;
+    transform: translateY(-50%);
     background: var(--bg3);
     border: 1px solid var(--border);
     border-radius: 50%;
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     color: var(--text-dim);
-    font-size: 16px;
+    font-size: 18px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0;
-    transition: opacity 0.2s, transform 0.1s;
+    transition: opacity 0.15s, transform 0.1s;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Невидимая зона между сообщением и кнопкой */
+.message::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -45px;
+    width: 45px;
+    height: 100%;
     pointer-events: none;
 }
 
-.message:hover .react-btn {
+.message:hover .react-btn,
+.message:hover::after {
     opacity: 1;
+    pointer-events: auto;
+}
+
+.message:hover::after {
     pointer-events: auto;
 }
 
 .react-btn:hover {
     background: var(--accent);
     color: white;
-    transform: scale(1.1);
+    transform: translateY(-50%) scale(1.1);
 }
 
 /* Мобильные — показать кнопку при тапе */
