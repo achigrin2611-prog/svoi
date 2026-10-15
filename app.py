@@ -1,5 +1,5 @@
 import eventlet
-eventlet.monkey_patch()
+eventlet.monkey_patch(socket=True, select=True, time=True, thread=True, os=True)
 
 from flask import Flask, render_template, redirect, url_for, request, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -16,9 +16,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'sqlite:///svoi.db'
 ).replace('postgres://', 'postgresql+psycopg://').replace('postgresql://', 'postgresql+psycopg://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
 
 db = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -235,7 +239,6 @@ def handle_delete(data):
     }, broadcast=True)
 
 
-# ============ РЕДАКТИРОВАНИЕ СООБЩЕНИЙ ============
 @socketio.on('edit_message')
 def handle_edit(data):
     if not current_user.is_authenticated:
@@ -264,16 +267,18 @@ def handle_edit(data):
     }, broadcast=True)
 
 
-# ============ СОЗДАНИЕ ТАБЛИЦ ПРИ СТАРТЕ ============
-with app.app_context():
-    db.create_all()
-    if not Group.query.first():
-        test_group = Group(name='Тестовая группа', invite_code='SVOI2025')
-        db.session.add(test_group)
-        db.session.commit()
-        print('✅ Создана тестовая группа. Код приглашения: SVOI2025')
+# ============ ИНИЦИАЛИЗАЦИЯ БД ============
+def init_db():
+    with app.app_context():
+        db.create_all()
+        if not Group.query.first():
+            test_group = Group(name='Тестовая группа', invite_code='SVOI2025')
+            db.session.add(test_group)
+            db.session.commit()
+            print('✅ Создана тестовая группа. Код приглашения: SVOI2025')
 
 
 # ============ ЗАПУСК ============
 if __name__ == '__main__':
+    init_db()
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

@@ -143,7 +143,6 @@ function showMessageMenu(event, messageId, userId) {
     menu.style.top = y + 'px';
     menu.style.left = x + 'px';
 
-    // Показать "Редактировать" только для своих
     const editBtn = document.getElementById('edit-menu-item');
     if (editBtn) {
         if (parseInt(userId) === window.currentUserId) {
@@ -202,7 +201,6 @@ function editMessage() {
     input.focus();
     input.select();
 
-    // Enter — сохранить
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -212,7 +210,6 @@ function editMessage() {
         }
     });
 
-    // Потеря фокуса — сохранить
     input.addEventListener('blur', () => {
         setTimeout(() => {
             if (document.contains(input)) {
