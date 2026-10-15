@@ -189,6 +189,7 @@ body {
     align-self: flex-start;
     border: 1px solid var(--border);
     animation: slideIn 0.2s ease;
+    position: relative;
 }
 
 @keyframes slideIn {
@@ -260,9 +261,6 @@ body {
     transform: scale(0.92);
 }
 
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 /* ============ РЕАКЦИИ ============ */
 .reactions {
     display: flex;
@@ -288,26 +286,44 @@ body {
 }
 
 .react-btn {
-    background: transparent;
+    position: absolute;
+    top: 8px;
+    right: -32px;
+    background: var(--bg3);
     border: 1px solid var(--border);
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     color: var(--text-dim);
-    font-size: 14px;
+    font-size: 16px;
     cursor: pointer;
-    margin-top: 6px;
-    opacity: 0.5;
-    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.1s;
+    pointer-events: none;
 }
 
 .message:hover .react-btn {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .react-btn:hover {
-    background: var(--bg3);
-    color: var(--accent);
+    background: var(--accent);
+    color: white;
+    transform: scale(1.1);
+}
+
+/* Мобильные — показать кнопку при тапе */
+@media (hover: none) {
+    .react-btn {
+        opacity: 1;
+        pointer-events: auto;
+        position: static;
+        margin-top: 6px;
+    }
 }
 
 .emoji-picker {
@@ -317,8 +333,9 @@ body {
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 8px;
+    display: flex;
     gap: 4px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .emoji-picker span {
@@ -333,3 +350,7 @@ body {
     background: var(--bg3);
     transform: scale(1.2);
 }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
