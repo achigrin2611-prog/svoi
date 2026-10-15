@@ -47,6 +47,7 @@ class Message(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'))
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
+    is_edited = db.Column(db.Boolean, default=False)
     user = db.relationship('User', backref='messages')
     reactions = db.relationship('Reaction', backref='message', cascade='all, delete-orphan')
 
@@ -231,6 +232,35 @@ def handle_delete(data):
 
     emit('message_deleted', {
         'message_id': message_id
+    }, broadcast=True)
+
+
+# ============ РЕДАКТИРОВАНИЕ СООБЩЕНИЙ ============
+@socketio.on('edit_message')
+def handle_edit(data):
+    if not current_user.is_authenticated:
+        return
+
+    message_id = data['message_id']
+    new_text = data['text'].strip()
+
+    if not new_text:
+        return
+
+    msg = Message.query.get(message_id)
+    if not msg:
+        return
+
+    if msg.user_id != current_user.id:
+        return
+
+    msg.text = new_text
+    msg.is_edited = True
+    db.session.commit()
+
+    emit('message_edited', {
+        'message_id': message_id,
+        'text': new_text
     }, broadcast=True)
 
 

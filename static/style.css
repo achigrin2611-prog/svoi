@@ -405,3 +405,28 @@ body {
 .menu-item:active {
     background: var(--accent);
 }
+/* ============ РЕДАКТИРОВАНИЕ ============ */
+.edit-input {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    background: var(--bg3);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+    margin: 4px 0;
+}
+
+.edited-mark {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-left: 4px;
+}
+
+.menu-item#edit-menu-item {
+    border-bottom: 1px solid var(--border);
+}

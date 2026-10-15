@@ -8,13 +8,16 @@
         <a href="{{ url_for('logout') }}" class="logout">Выйти</a>
     </header>
 
-    <main class="messages" id="messages">
+    <main class="messages" id="messages" data-current-user="{{ current_user.id }}">
         {% for msg in messages %}
             <div class="message" data-message-id="{{ msg.id }}" data-user-id="{{ msg.user_id }}"
                  oncontextmenu="showMessageMenu(event, {{ msg.id }}, {{ msg.user_id }}); return false;">
                 <span class="msg-user">{{ msg.user.username }}</span>
-                <span class="msg-text">{{ msg.text }}</span>
-                <span class="msg-time">{{ msg.timestamp.strftime('%H:%M') }}</span>
+                <span class="msg-text" id="text-{{ msg.id }}">{{ msg.text }}</span>
+                <span class="msg-time">
+                    {{ msg.timestamp.strftime('%H:%M') }}
+                    <span class="edited-mark" id="edited-{{ msg.id }}">{% if msg.is_edited %}(изменено){% endif %}</span>
+                </span>
 
                 <div class="reactions" id="reactions-{{ msg.id }}">
                     {% if reactions_data[msg.id] %}
@@ -47,6 +50,9 @@
 </div>
 
 <div id="message-menu" class="message-menu" style="display:none;">
+    <button class="menu-item" id="edit-menu-item" onclick="editMessage()">
+        ✏️ Редактировать
+    </button>
     <button class="menu-item" onclick="deleteMessage()">
         🗑️ Удалить
     </button>

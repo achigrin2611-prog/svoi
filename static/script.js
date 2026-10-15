@@ -1,3 +1,6 @@
+// ============ ID ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ============
+window.currentUserId = parseInt(document.getElementById('messages')?.dataset.currentUser) || null;
+
 // ============ SOCKET IO ============
 const socket = io();
 
@@ -29,15 +32,17 @@ socket.on('new_message', (data) => {
     msg.setAttribute('oncontextmenu', `showMessageMenu(event, ${data.id}, ${data.user_id}); return false;`);
     msg.innerHTML = `
         <span class="msg-user">${escapeHtml(data.username)}</span>
-        <span class="msg-text">${escapeHtml(data.text)}</span>
-        <span class="msg-time">${data.timestamp}</span>
+        <span class="msg-text" id="text-${data.id}">${escapeHtml(data.text)}</span>
+        <span class="msg-time">
+            ${data.timestamp}
+            <span class="edited-mark" id="edited-${data.id}"></span>
+        </span>
         <div class="reactions" id="reactions-${data.id}"></div>
         <button class="react-btn" onclick="showEmojiPicker(${data.id}, event)">+</button>
     `;
     messagesEl.appendChild(msg);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    // Добавляем долгий тап для мобильных
     attachLongPress(msg);
 });
 
@@ -121,7 +126,7 @@ socket.on('reaction_updated', (data) => {
     }
 });
 
-// ============ МЕНЮ СООБЩЕНИЯ (удаление) ============
+// ============ МЕНЮ СООБЩЕНИЯ ============
 let menuMessageId = null;
 
 function showMessageMenu(event, messageId, userId) {
@@ -137,6 +142,16 @@ function showMessageMenu(event, messageId, userId) {
 
     menu.style.top = y + 'px';
     menu.style.left = x + 'px';
+
+    // Показать "Редактировать" только для своих
+    const editBtn = document.getElementById('edit-menu-item');
+    if (editBtn) {
+        if (parseInt(userId) === window.currentUserId) {
+            editBtn.style.display = 'block';
+        } else {
+            editBtn.style.display = 'none';
+        }
+    }
 }
 
 function deleteMessage() {
@@ -167,6 +182,83 @@ socket.on('message_deleted', (data) => {
     }
 });
 
+// ============ РЕДАКТИРОВАНИЕ СООБЩЕНИЙ ============
+function editMessage() {
+    if (!menuMessageId) return;
+
+    const msg = document.querySelector(`.message[data-message-id="${menuMessageId}"]`);
+    if (!msg) return;
+
+    const textEl = msg.querySelector('.msg-text');
+    const oldText = textEl.textContent;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = oldText;
+    input.className = 'edit-input';
+    input.dataset.messageId = menuMessageId;
+
+    textEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    // Enter — сохранить
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit(input, oldText);
+        } else if (e.key === 'Escape') {
+            cancelEdit(input, oldText);
+        }
+    });
+
+    // Потеря фокуса — сохранить
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (document.contains(input)) {
+                saveEdit(input, oldText);
+            }
+        }, 150);
+    });
+
+    document.getElementById('message-menu').style.display = 'none';
+    menuMessageId = null;
+}
+
+function saveEdit(input, oldText) {
+    const newText = input.value.trim();
+    const messageId = input.dataset.messageId;
+
+    if (newText && newText !== oldText) {
+        socket.emit('edit_message', {
+            message_id: parseInt(messageId),
+            text: newText
+        });
+    } else {
+        cancelEdit(input, oldText);
+    }
+}
+
+function cancelEdit(input, oldText) {
+    const span = document.createElement('span');
+    span.className = 'msg-text';
+    span.id = 'text-' + input.dataset.messageId;
+    span.textContent = oldText;
+    input.replaceWith(span);
+}
+
+socket.on('message_edited', (data) => {
+    const textEl = document.getElementById('text-' + data.message_id);
+    if (textEl) {
+        textEl.textContent = data.text;
+    }
+
+    const editedMark = document.getElementById('edited-' + data.message_id);
+    if (editedMark) {
+        editedMark.textContent = '(изменено)';
+    }
+});
+
 // ============ ДОЛГИЙ ТАП ДЛЯ МОБИЛЬНЫХ ============
 function attachLongPress(msg) {
     let touchTimer = null;
@@ -182,7 +274,6 @@ function attachLongPress(msg) {
     msg.addEventListener('touchmove', () => clearTimeout(touchTimer));
 }
 
-// Применить ко всем существующим сообщениям
 document.querySelectorAll('.message').forEach(attachLongPress);
 
 // ============ PWA: РЕГИСТРАЦИЯ SERVICE WORKER ============
