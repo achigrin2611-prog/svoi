@@ -10,7 +10,8 @@
 
     <main class="messages" id="messages">
         {% for msg in messages %}
-            <div class="message" data-message-id="{{ msg.id }}">
+            <div class="message" data-message-id="{{ msg.id }}" data-user-id="{{ msg.user_id }}"
+                 oncontextmenu="showMessageMenu(event, {{ msg.id }}, {{ msg.user_id }}); return false;">
                 <span class="msg-user">{{ msg.user.username }}</span>
                 <span class="msg-text">{{ msg.text }}</span>
                 <span class="msg-time">{{ msg.timestamp.strftime('%H:%M') }}</span>
@@ -43,5 +44,11 @@
     <span onclick="toggleReaction('🔥')">🔥</span>
     <span onclick="toggleReaction('😮')">😮</span>
     <span onclick="toggleReaction('😢')">😢</span>
+</div>
+
+<div id="message-menu" class="message-menu" style="display:none;">
+    <button class="menu-item" onclick="deleteMessage()">
+        🗑️ Удалить
+    </button>
 </div>
 {% endblock %}

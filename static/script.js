@@ -25,6 +25,8 @@ socket.on('new_message', (data) => {
     const msg = document.createElement('div');
     msg.className = 'message';
     msg.dataset.messageId = data.id;
+    msg.dataset.userId = data.user_id;
+    msg.setAttribute('oncontextmenu', `showMessageMenu(event, ${data.id}, ${data.user_id}); return false;`);
     msg.innerHTML = `
         <span class="msg-user">${escapeHtml(data.username)}</span>
         <span class="msg-text">${escapeHtml(data.text)}</span>
@@ -34,6 +36,9 @@ socket.on('new_message', (data) => {
     `;
     messagesEl.appendChild(msg);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Добавляем долгий тап для мобильных
+    attachLongPress(msg);
 });
 
 // ============ ЗАЩИТА ОТ XSS ============
@@ -48,7 +53,7 @@ if (messagesEl) {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// ============ НЕ ПЕРЕЗАГРУЖАТЬ СТРАНИЦУ ПРИ ENTER ============
+// ============ НЕ ПЕРЕЗАГРУЖАТЬ ПРИ ENTER ============
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && document.activeElement === inputEl) {
         e.preventDefault();
@@ -89,7 +94,6 @@ function quickReact(messageId, emoji) {
     });
 }
 
-// Скрывать при клике вне меню
 document.addEventListener('click', (e) => {
     const picker = document.getElementById('emoji-picker');
     if (picker && !picker.contains(e.target) && !e.target.classList.contains('react-btn')) {
@@ -97,7 +101,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Обновление реакций
 socket.on('reaction_updated', (data) => {
     const container = document.getElementById('reactions-' + data.message_id);
     if (!container) return;
@@ -117,6 +120,70 @@ socket.on('reaction_updated', (data) => {
         container.appendChild(span);
     }
 });
+
+// ============ МЕНЮ СООБЩЕНИЯ (удаление) ============
+let menuMessageId = null;
+
+function showMessageMenu(event, messageId, userId) {
+    event.preventDefault();
+
+    menuMessageId = messageId;
+    const menu = document.getElementById('message-menu');
+    menu.style.display = 'block';
+    menu.style.position = 'fixed';
+
+    const x = event.clientX || event.touches?.[0]?.clientX || 100;
+    const y = event.clientY || event.touches?.[0]?.clientY || 100;
+
+    menu.style.top = y + 'px';
+    menu.style.left = x + 'px';
+}
+
+function deleteMessage() {
+    if (!menuMessageId) return;
+
+    if (confirm('Удалить сообщение?')) {
+        socket.emit('delete_message', { message_id: menuMessageId });
+    }
+
+    document.getElementById('message-menu').style.display = 'none';
+    menuMessageId = null;
+}
+
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('message-menu');
+    if (menu && !menu.contains(e.target)) {
+        menu.style.display = 'none';
+    }
+});
+
+socket.on('message_deleted', (data) => {
+    const msg = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
+    if (msg) {
+        msg.style.transition = 'opacity 0.3s, transform 0.3s';
+        msg.style.opacity = '0';
+        msg.style.transform = 'scale(0.9)';
+        setTimeout(() => msg.remove(), 300);
+    }
+});
+
+// ============ ДОЛГИЙ ТАП ДЛЯ МОБИЛЬНЫХ ============
+function attachLongPress(msg) {
+    let touchTimer = null;
+    msg.addEventListener('touchstart', (e) => {
+        touchTimer = setTimeout(() => {
+            const messageId = msg.dataset.messageId;
+            const userId = msg.dataset.userId;
+            showMessageMenu(e, messageId, userId);
+        }, 600);
+    });
+
+    msg.addEventListener('touchend', () => clearTimeout(touchTimer));
+    msg.addEventListener('touchmove', () => clearTimeout(touchTimer));
+}
+
+// Применить ко всем существующим сообщениям
+document.querySelectorAll('.message').forEach(attachLongPress);
 
 // ============ PWA: РЕГИСТРАЦИЯ SERVICE WORKER ============
 if ('serviceWorker' in navigator) {

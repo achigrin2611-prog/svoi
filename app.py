@@ -48,6 +48,7 @@ class Message(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'))
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
     user = db.relationship('User', backref='messages')
+    reactions = db.relationship('Reaction', backref='message', cascade='all, delete-orphan')
 
 
 class Reaction(db.Model):
@@ -126,7 +127,6 @@ def chat():
     messages = Message.query.filter_by(group_id=current_user.group_id).order_by(Message.timestamp).all()
     users = User.query.filter_by(group_id=current_user.group_id).all()
 
-    # Собираем реакции для каждого сообщения
     reactions_data = {}
     for msg in messages:
         reactions = Reaction.query.filter_by(message_id=msg.id).all()
@@ -165,7 +165,8 @@ def handle_message(data):
         'id': msg.id,
         'username': current_user.username,
         'text': data['text'],
-        'timestamp': msg.timestamp.strftime('%H:%M')
+        'timestamp': msg.timestamp.strftime('%H:%M'),
+        'user_id': current_user.id
     }, broadcast=True)
 
 
@@ -208,6 +209,28 @@ def handle_reaction(data):
         'action': action,
         'user_id': current_user.id,
         'emoji': emoji
+    }, broadcast=True)
+
+
+@socketio.on('delete_message')
+def handle_delete(data):
+    if not current_user.is_authenticated:
+        return
+
+    message_id = data['message_id']
+    msg = Message.query.get(message_id)
+
+    if not msg:
+        return
+
+    if msg.user_id != current_user.id:
+        return
+
+    db.session.delete(msg)
+    db.session.commit()
+
+    emit('message_deleted', {
+        'message_id': message_id
     }, broadcast=True)
 
 
