@@ -147,15 +147,16 @@ def handle_message(data):
     }, broadcast=True)
 
 
+# ============ СОЗДАНИЕ ТАБЛИЦ ПРИ СТАРТЕ ============
+with app.app_context():
+    db.create_all()
+    if not Group.query.first():
+        test_group = Group(name='Тестовая группа', invite_code='SVOI2025')
+        db.session.add(test_group)
+        db.session.commit()
+        print('✅ Создана тестовая группа. Код приглашения: SVOI2025')
+
+
 # ============ ЗАПУСК ============
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-
-        if not Group.query.first():
-            test_group = Group(name='Тестовая группа', invite_code='SVOI2025')
-            db.session.add(test_group)
-            db.session.commit()
-            print('✅ Создана тестовая группа. Код приглашения: SVOI2025')
-
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
