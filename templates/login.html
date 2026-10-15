@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="login-screen">
     <div class="login-box">
@@ -28,7 +29,8 @@
                 <input type="text" name="username" placeholder="Имя" required>
                 <input type="password" name="password" placeholder="Пароль" required>
                 <button type="submit">Войти</button>
-                <p class="switch">Ещё не свой? <a href="{{ url_for('register') }}">Регистрация</a></p>
+                <p class="switch">Ещё не свой? <a href="{{ url_for('register') }}">Войти по коду</a></p>
+                <p class="switch">Или <a href="{{ url_for('create_group') }}">создать свою группу</a></p>
             </form>
         {% endif %}
     </div>

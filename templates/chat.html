@@ -4,9 +4,15 @@
 <div class="chat-screen">
     <header class="chat-header">
         <h2>Свои</h2>
+        <span class="group-name" title="Название группы">{{ group.name }}</span>
         <span class="online-count">{{ users|length }} онлайн</span>
         <a href="{{ url_for('logout') }}" class="logout">Выйти</a>
     </header>
+
+    <div class="invite-bar">
+        <span>Код: <b>{{ group.invite_code }}</b></span>
+        <button onclick="copyInviteCode('{{ group.invite_code }}')">📋</button>
+    </div>
 
     <main class="messages" id="messages" data-current-user="{{ current_user.id }}">
         {% for msg in messages %}

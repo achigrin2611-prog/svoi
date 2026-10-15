@@ -7,6 +7,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import random
+import string
 
 # ============ НАСТРОЙКА ============
 app = Flask(__name__)
@@ -27,6 +29,15 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+
+# ============ ГЕНЕРАЦИЯ КОДА ============
+def generate_invite_code():
+    """Генерирует уникальный код приглашения"""
+    while True:
+        code = 'SVOI-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        if not Group.query.filter_by(invite_code=code).first():
+            return code
 
 
 # ============ МОДЕЛИ БАЗЫ ДАННЫХ ============
@@ -52,7 +63,7 @@ class Message(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'))
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
     is_edited = db.Column(db.Boolean, default=False)
-    reply_to_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
+    reply_to_id = db.Column(db.Integer, nullable=True)
     reply_to_text = db.Column(db.Text, nullable=True)
     reply_to_user = db.Column(db.String(50), nullable=True)
     user = db.relationship('User', backref='messages')
@@ -129,6 +140,42 @@ def register():
     return render_template('login.html', register=True)
 
 
+@app.route('/create_group', methods=['GET', 'POST'])
+def create_group():
+    if request.method == 'POST':
+        group_name = request.form.get('group_name', '').strip()
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+
+        if not group_name or not username or not password:
+            flash('Заполни все поля')
+            return redirect(url_for('create_group'))
+
+        if User.query.filter_by(username=username).first():
+            flash('Такое имя уже занято')
+            return redirect(url_for('create_group'))
+
+        # Создаём группу с уникальным кодом
+        invite_code = generate_invite_code()
+        new_group = Group(name=group_name, invite_code=invite_code)
+        db.session.add(new_group)
+        db.session.commit()
+
+        # Создаём пользователя
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            group_id=new_group.id
+        )
+        db.session.add(user)
+        db.session.commit()
+
+        login_user(user)
+        return redirect(url_for('chat'))
+
+    return render_template('create_group.html')
+
+
 @app.route('/chat')
 @login_required
 def chat():
@@ -143,7 +190,13 @@ def chat():
             counts[r.emoji] = counts.get(r.emoji, 0) + 1
         reactions_data[msg.id] = counts
 
-    return render_template('chat.html', messages=messages, users=users, reactions_data=reactions_data)
+    return render_template(
+        'chat.html',
+        messages=messages,
+        users=users,
+        reactions_data=reactions_data,
+        group=current_user.group
+    )
 
 
 @app.route('/logout')
@@ -168,7 +221,7 @@ def handle_message(data):
     if reply_to_id:
         original = Message.query.get(reply_to_id)
         if original:
-            reply_to_text = original.text[:100]  # первые 100 символов
+            reply_to_text = original.text[:100]
             reply_to_user = original.user.username
 
     msg = Message(

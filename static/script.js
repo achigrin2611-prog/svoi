@@ -323,6 +323,32 @@ function scrollToMessage(messageId) {
     }
 }
 
+// ============ КОПИРОВАТЬ КОД ПРИГЛАШЕНИЯ ============
+function copyInviteCode(code) {
+    navigator.clipboard.writeText(code).then(() => {
+        const toast = document.createElement('div');
+        toast.textContent = '✅ Код скопирован: ' + code;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            z-index: 10000;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        `;
+        document.body.appendChild(toast);
+
+        setTimeout(() => toast.remove(), 2500);
+    }).catch(err => {
+        alert('Код: ' + code);
+    });
+}
+
 // ============ ДОЛГИЙ ТАП ДЛЯ МОБИЛЬНЫХ ============
 function attachLongPress(msg) {
     let touchTimer = null;
