@@ -11,7 +11,7 @@ app.config['SECRET_KEY'] = 'svoi-secret-key-change-me-later'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL',
     'sqlite:///svoi.db'
-).replace('postgres://', 'postgresql://')
+).replace('postgres://', 'postgresql+psycopg://').replace('postgresql://', 'postgresql+psycopg://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -152,7 +152,6 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
 
-        # Создаём тестовую группу при первом запуске
         if not Group.query.first():
             test_group = Group(name='Тестовая группа', invite_code='SVOI2025')
             db.session.add(test_group)
