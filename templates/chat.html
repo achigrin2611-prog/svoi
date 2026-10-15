@@ -10,10 +10,22 @@
 
     <main class="messages" id="messages">
         {% for msg in messages %}
-            <div class="message">
+            <div class="message" data-message-id="{{ msg.id }}">
                 <span class="msg-user">{{ msg.user.username }}</span>
                 <span class="msg-text">{{ msg.text }}</span>
                 <span class="msg-time">{{ msg.timestamp.strftime('%H:%M') }}</span>
+
+                <div class="reactions" id="reactions-{{ msg.id }}">
+                    {% if reactions_data[msg.id] %}
+                        {% for emoji, count in reactions_data[msg.id].items() %}
+                            <span class="reaction" onclick="quickReact({{ msg.id }}, '{{ emoji }}')">
+                                {{ emoji }} {{ count }}
+                            </span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <button class="react-btn" onclick="showEmojiPicker({{ msg.id }}, event)">+</button>
             </div>
         {% endfor %}
     </main>
@@ -22,5 +34,14 @@
         <input type="text" id="message-input" placeholder="Сообщение..." autocomplete="off">
         <button type="submit">→</button>
     </form>
+</div>
+
+<div id="emoji-picker" class="emoji-picker" style="display:none;">
+    <span onclick="toggleReaction('❤️')">❤️</span>
+    <span onclick="toggleReaction('😂')">😂</span>
+    <span onclick="toggleReaction('👍')">👍</span>
+    <span onclick="toggleReaction('🔥')">🔥</span>
+    <span onclick="toggleReaction('😮')">😮</span>
+    <span onclick="toggleReaction('😢')">😢</span>
 </div>
 {% endblock %}

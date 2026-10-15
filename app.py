@@ -50,6 +50,14 @@ class Message(db.Model):
     user = db.relationship('User', backref='messages')
 
 
+class Reaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    emoji = db.Column(db.String(10), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
+    user = db.relationship('User', backref='reactions')
+
+
 # ============ ЗАГРУЗКА ПОЛЬЗОВАТЕЛЯ ============
 @login_manager.user_loader
 def load_user(user_id):
@@ -117,7 +125,17 @@ def register():
 def chat():
     messages = Message.query.filter_by(group_id=current_user.group_id).order_by(Message.timestamp).all()
     users = User.query.filter_by(group_id=current_user.group_id).all()
-    return render_template('chat.html', messages=messages, users=users)
+
+    # Собираем реакции для каждого сообщения
+    reactions_data = {}
+    for msg in messages:
+        reactions = Reaction.query.filter_by(message_id=msg.id).all()
+        counts = {}
+        for r in reactions:
+            counts[r.emoji] = counts.get(r.emoji, 0) + 1
+        reactions_data[msg.id] = counts
+
+    return render_template('chat.html', messages=messages, users=users, reactions_data=reactions_data)
 
 
 @app.route('/logout')
@@ -144,9 +162,52 @@ def handle_message(data):
     db.session.commit()
 
     emit('new_message', {
+        'id': msg.id,
         'username': current_user.username,
         'text': data['text'],
         'timestamp': msg.timestamp.strftime('%H:%M')
+    }, broadcast=True)
+
+
+@socketio.on('toggle_reaction')
+def handle_reaction(data):
+    if not current_user.is_authenticated:
+        return
+
+    message_id = data['message_id']
+    emoji = data['emoji']
+
+    existing = Reaction.query.filter_by(
+        user_id=current_user.id,
+        message_id=message_id,
+        emoji=emoji
+    ).first()
+
+    if existing:
+        db.session.delete(existing)
+        action = 'removed'
+    else:
+        new_reaction = Reaction(
+            emoji=emoji,
+            user_id=current_user.id,
+            message_id=message_id
+        )
+        db.session.add(new_reaction)
+        action = 'added'
+
+    db.session.commit()
+
+    reactions = Reaction.query.filter_by(message_id=message_id).all()
+    counts = {}
+    for r in reactions:
+        counts[r.emoji] = counts.get(r.emoji, 0) + 1
+
+    emit('reaction_updated', {
+        'message_id': message_id,
+        'counts': counts,
+        'action': action,
+        'user_id': current_user.id,
+        'emoji': emoji
     }, broadcast=True)
 
 
