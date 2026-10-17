@@ -1,30 +1,31 @@
-const CACHE_NAME = 'svoi-v1';
-const urlsToCache = [
-    '/',
-    '/static/style.css',
-    '/static/script.js',
-    '/static/icon-192.png',
-    '/static/icon-512.png'
-];
+const CACHE_NAME = 'svoi-v2';
+const urlsToCache = ['/', '/static/style.css', '/static/script.js', '/static/icon-192.png'];
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
-    );
+    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)));
 });
 
 self.addEventListener('fetch', (event) => {
     event.respondWith(
-        caches.match(event.request).then((response) => {
-            return response || fetch(event.request);
+        caches.match(event.request).then((response) => response || fetch(event.request))
+    );
+});
+
+self.addEventListener('push', (event) => {
+    let data = { title: 'Свои', body: 'Новое сообщение', url: '/' };
+    if (event.data) {
+        try { data = event.data.json(); } catch(e) {}
+    }
+    event.waitUntil(
+        self.registration.showNotification(data.title, {
+            body: data.body,
+            icon: '/static/icon-192.png',
+            data: { url: data.url }
         })
     );
 });
-// ============ PWA: РЕГИСТРАЦИЯ SERVICE WORKER ============
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-            .then((reg) => console.log('✅ Service Worker зарегистрирован:', reg.scope))
-            .catch((err) => console.error('❌ SW ошибка:', err));
-    });
-}
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(clients.openWindow(event.notification.data.url || '/'));
+});

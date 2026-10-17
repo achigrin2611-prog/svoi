@@ -66,13 +66,9 @@ if (formEl) {
     });
 }
 
-// УВЕДОМЛЕНИЯ
+// ============ УВЕДОМЛЕНИЯ (БЕЗ ПУША) ============
 let unreadCount = 0;
 let originalTitle = document.title;
-
-if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-}
 
 socket.on('new_message', (data) => {
     if (!messagesEl) return;
@@ -107,19 +103,9 @@ socket.on('new_message', (data) => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
     attachLongPress(msg);
 
-    // Если вкладка скрыта
     if (document.hidden) {
-        const sound = document.getElementById('notify-sound');
-        if (sound) { sound.currentTime = 0; sound.play().catch(() => {}); }
         unreadCount++;
         document.title = `(${unreadCount}) ${originalTitle}`;
-        if (Notification.permission === 'granted') {
-            new Notification(data.username, {
-                body: data.text,
-                icon: '/static/icon-192.png',
-                tag: 'svoi-message'
-            });
-        }
     }
 });
 
@@ -323,6 +309,52 @@ function attachLongPress(msg) {
     msg.addEventListener('touchmove', () => clearTimeout(touchTimer));
 }
 document.querySelectorAll('.message').forEach(attachLongPress);
+
+// ============ ПУШ-ПОДПИСКА ============
+async function subscribeToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('Push не поддерживается');
+        return;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            console.log('Пользователь не разрешил уведомления');
+            return;
+        }
+
+        subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(window.VAPID_PUBLIC_KEY)
+        });
+    }
+
+    await fetch('/subscribe_push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription)
+    });
+    console.log('✅ Подписка на пуш отправлена');
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+if (window.currentGroupId) {
+    subscribeToPush();
+}
 
 // PWA
 if ('serviceWorker' in navigator) {

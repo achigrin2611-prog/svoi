@@ -1,14 +1,17 @@
 import eventlet
+
 eventlet.monkey_patch(socket=True, select=True, time=True, thread=True, os=True)
 
-from flask import Flask, render_template, redirect, url_for, request, flash, abort
+from flask import Flask, render_template, redirect, url_for, request, flash, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_pywebpush import WebPush, WebPushException
 import os
 import random
 import string
+import json
 
 # ============ НАСТРОЙКА ============
 app = Flask(__name__)
@@ -30,10 +33,20 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+# ============ VAPID КЛЮЧИ ============
+# ⚠️ ВСТАВЬ СВОЙ ПРИВАТНЫЙ КЛЮЧ (из generate_keys.py)
+VAPID_PRIVATE_KEY = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ0p2SXExZm81ZERuV2Vaa1AKZDB1OGZyT0xvbFAyeEE2UHEwNjIzeVRxemd1aFJBTkNBQVMwdUhMYWdRelVWS0VGd2E5U0tSemJIaFhFSmdDYwpLTHI2Y2hwR2plWk1MMHhvcEhRSG45MG9qNUpCUzdFRnZscWY4aWhxQ1l0Sm1MYWEvTmdXL1dTUAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"
+# ⚠️ ВСТАВЬ СВОЙ ПУБЛИЧНЫЙ КЛЮЧ
+VAPID_PUBLIC_KEY = "BLS4ctqBDNRUoQXBr1IpHNseFcQmAJwouvpyGkaN5kwvTGikdAef3SiPkkFLsQW-Wp_yKGoJi0mYtpr82Bb9ZI8"
+
+push = WebPush(
+    private_key=VAPID_PRIVATE_KEY,
+    sender_info="mailto:achigrin2611@gmail.com"
+)
 
 # ============ ОНЛАЙН + ПЕЧАТАЕТ ============
-online_users = {}  # {room: set(user_ids)}
-typing_users = {}  # {room: {user_id: username}}
+online_users = {}
+typing_users = {}
 
 
 def emit_online_list(room):
@@ -100,6 +113,14 @@ class Reaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
     user = db.relationship('User', backref='reactions')
+
+
+class PushSubscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    endpoint = db.Column(db.Text, nullable=False)
+    p256dh = db.Column(db.Text, nullable=False)
+    auth = db.Column(db.Text, nullable=False)
 
 
 # ============ ЗАГРУЗКА ПОЛЬЗОВАТЕЛЯ ============
@@ -278,7 +299,8 @@ def chat(group_id):
         messages=messages,
         users=users,
         online_count=online_count,
-        reactions_data=reactions_data
+        reactions_data=reactions_data,
+        vapid_public_key=VAPID_PUBLIC_KEY
     )
 
 
@@ -289,6 +311,30 @@ def logout():
     db.session.commit()
     logout_user()
     return redirect(url_for('login'))
+
+
+@app.route('/subscribe_push', methods=['POST'])
+@login_required
+def subscribe_push():
+    data = request.json
+    if not data or 'endpoint' not in data:
+        return jsonify({"error": "Invalid"}), 400
+
+    existing = PushSubscription.query.filter_by(
+        user_id=current_user.id,
+        endpoint=data['endpoint']
+    ).first()
+
+    if not existing:
+        sub = PushSubscription(
+            user_id=current_user.id,
+            endpoint=data['endpoint'],
+            p256dh=data['keys']['p256dh'],
+            auth=data['keys']['auth']
+        )
+        db.session.add(sub)
+        db.session.commit()
+    return jsonify({"ok": True})
 
 
 # ============ СОКЕТЫ ============
@@ -384,6 +430,29 @@ def handle_message(data):
         'reply_to_text': reply_to_text,
         'reply_to_user': reply_to_user
     }, to=room)
+
+    # ============ ОТПРАВКА ПУШЕЙ ============
+    subscriptions = PushSubscription.query.filter(
+        PushSubscription.user_id != current_user.id
+    ).all()
+
+    for sub in subscriptions:
+        try:
+            push.send(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {"p256dh": sub.p256dh, "auth": sub.auth}
+                },
+                data=json.dumps({
+                    "title": current_user.username,
+                    "body": data['text'][:100],
+                    "url": f"/chat/{group_id}"
+                })
+            )
+        except WebPushException as e:
+            if e.response and e.response.status_code == 410:
+                db.session.delete(sub)
+                db.session.commit()
 
 
 @socketio.on('toggle_reaction')

@@ -81,7 +81,11 @@
     <button class="menu-item" onclick="deleteMessage()">🗑️ Удалить</button>
 </div>
 
+<script>
+window.VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
+</script>
+
 <audio id="notify-sound" preload="auto">
-    <source src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" type="audio/mpeg">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3" type="audio/mpeg">
 </audio>
 {% endblock %}
