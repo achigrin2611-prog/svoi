@@ -4,7 +4,7 @@
 <div class="login-screen">
     <div class="login-box">
         <h1 class="logo">Свои</h1>
-        <p class="subtitle">Создай свою группу</p>
+        <p class="subtitle">Создать группу</p>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}
@@ -18,14 +18,12 @@
 
         <form method="POST" action="{{ url_for('create_group') }}">
             <input type="text" name="group_name" placeholder="Название группы (например, Друзья)" required>
-            <input type="text" name="username" placeholder="Твоё имя" required>
-            <input type="password" name="password" placeholder="Пароль" required>
-            <button type="submit">Создать группу</button>
-            <p class="switch">Уже есть группа? <a href="{{ url_for('login') }}">Войти</a></p>
+            <button type="submit">Создать</button>
+            <p class="switch"><a href="{{ url_for('index') }}">← Назад к группам</a></p>
         </form>
 
         <p class="switch" style="margin-top: 16px; font-size: 12px; color: var(--text-dim);">
-            После создания ты получишь код — скинь его друзьям
+            После создания получишь код — скинь его друзьям
         </p>
     </div>
 </div>

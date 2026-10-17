@@ -1,15 +1,20 @@
 // ============ ID ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ============
-window.currentUserId = parseInt(document.getElementById('messages')?.dataset.currentUser) || null;
+const messagesEl = document.getElementById('messages');
+window.currentUserId = messagesEl ? parseInt(messagesEl.dataset.currentUser) : null;
+window.currentGroupId = messagesEl ? parseInt(messagesEl.dataset.groupId) : null;
 
 // ============ ПЕРЕМЕННАЯ ДЛЯ ОТВЕТА ============
 let replyingTo = null;
 
 // ============ SOCKET IO ============
 const socket = io();
-
-const messagesEl = document.getElementById('messages');
 const formEl = document.getElementById('message-form');
 const inputEl = document.getElementById('message-input');
+
+// ============ ВОЙТИ В КОМНАТУ ГРУППЫ ============
+if (window.currentGroupId) {
+    socket.emit('join', { group_id: window.currentGroupId });
+}
 
 // ============ ОТПРАВКА СООБЩЕНИЯ ============
 if (formEl) {
@@ -18,7 +23,7 @@ if (formEl) {
         const text = inputEl.value.trim();
         if (!text) return;
 
-        const data = { text: text };
+        const data = { text: text, group_id: window.currentGroupId };
         if (replyingTo) {
             data.reply_to_id = replyingTo.id;
         }
@@ -155,6 +160,7 @@ function showMessageMenu(event, messageId, userId) {
 
     menuMessageId = messageId;
     const menu = document.getElementById('message-menu');
+    if (!menu) return;
     menu.style.display = 'block';
     menu.style.position = 'fixed';
 
@@ -308,7 +314,8 @@ function replyToMessage() {
 
 function cancelReply() {
     replyingTo = null;
-    document.getElementById('reply-preview').style.display = 'none';
+    const preview = document.getElementById('reply-preview');
+    if (preview) preview.style.display = 'none';
 }
 
 function scrollToMessage(messageId) {

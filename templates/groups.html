@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="groups-screen">
+    <header class="groups-header">
+        <h2>Свои</h2>
+        <a href="{{ url_for('logout') }}" class="logout">Выйти</a>
+    </header>
+
+    <div class="groups-actions">
+        <a href="{{ url_for('create_group') }}" class="btn-action">+ Создать</a>
+        <a href="{{ url_for('join_group') }}" class="btn-action">🔑 Войти по коду</a>
+    </div>
+
+    <main class="groups-list">
+        {% if groups %}
+            {% for item in groups %}
+                <a href="{{ url_for('chat', group_id=item.group.id) }}" class="group-item">
+                    <div class="group-icon">
+                        {{ item.group.name[0]|upper }}
+                    </div>
+                    <div class="group-info">
+                        <div class="group-title">{{ item.group.name }}</div>
+                        <div class="group-last">{{ item.last_message }}</div>
+                    </div>
+                    <div class="group-time">{{ item.last_time }}</div>
+                </a>
+            {% endfor %}
+        {% else %}
+            <div class="groups-empty">
+                <p>У тебя пока нет групп</p>
+                <p>Создай первую или войди по коду!</p>
+            </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

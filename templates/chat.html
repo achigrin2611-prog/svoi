@@ -3,9 +3,11 @@
 {% block content %}
 <div class="chat-screen">
     <header class="chat-header">
-        <h2>Свои</h2>
-        <span class="group-name" title="Название группы">{{ group.name }}</span>
-        <span class="online-count">{{ users|length }} онлайн</span>
+        <a href="{{ url_for('index') }}" class="back-btn">←</a>
+        <div class="chat-title">
+            <h2>{{ group.name }}</h2>
+            <span class="online-count">{{ users|length }} онлайн</span>
+        </div>
         <a href="{{ url_for('logout') }}" class="logout">Выйти</a>
     </header>
 
@@ -14,7 +16,7 @@
         <button onclick="copyInviteCode('{{ group.invite_code }}')">📋</button>
     </div>
 
-    <main class="messages" id="messages" data-current-user="{{ current_user.id }}">
+    <main class="messages" id="messages" data-current-user="{{ current_user.id }}" data-group-id="{{ group.id }}">
         {% for msg in messages %}
             <div class="message" data-message-id="{{ msg.id }}" data-user-id="{{ msg.user_id }}"
                  oncontextmenu="showMessageMenu(event, {{ msg.id }}, {{ msg.user_id }}); return false;">
@@ -73,14 +75,8 @@
 </div>
 
 <div id="message-menu" class="message-menu" style="display:none;">
-    <button class="menu-item" onclick="replyToMessage()">
-        💬 Ответить
-    </button>
-    <button class="menu-item" id="edit-menu-item" onclick="editMessage()">
-        ✏️ Редактировать
-    </button>
-    <button class="menu-item" onclick="deleteMessage()">
-        🗑️ Удалить
-    </button>
+    <button class="menu-item" onclick="replyToMessage()">💬 Ответить</button>
+    <button class="menu-item" id="edit-menu-item" onclick="editMessage()">✏️ Редактировать</button>
+    <button class="menu-item" onclick="deleteMessage()">🗑️ Удалить</button>
 </div>
 {% endblock %}
