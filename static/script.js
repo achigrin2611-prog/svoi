@@ -103,7 +103,13 @@ socket.on('new_message', (data) => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
     attachLongPress(msg);
 
+    // Если вкладка скрыта — звук + счетчик
     if (document.hidden) {
+        const sound = document.getElementById('notify-sound');
+        if (sound) {
+            sound.currentTime = 0;
+            sound.play().catch((e) => console.log('Звук заблокирован:', e));
+        }
         unreadCount++;
         document.title = `(${unreadCount}) ${originalTitle}`;
     }
