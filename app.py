@@ -37,14 +37,11 @@ typing_users = {}  # {room: {user_id: username}}
 
 
 def emit_online_list(room):
-    """Отправляет список онлайн-юзеров в комнату"""
     if room not in online_users:
         return
-
     user_ids = online_users[room]
     users = User.query.filter(User.id.in_(user_ids)).all()
     online_data = [{'id': u.id, 'username': u.username} for u in users]
-
     emit('online_updated', {
         'count': len(online_data),
         'users': online_data
@@ -135,7 +132,6 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
-
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             user.is_online = True
@@ -143,7 +139,6 @@ def login():
             return redirect(url_for('index'))
         else:
             flash('Неверный логин или пароль')
-
     return render_template('login.html')
 
 
@@ -163,10 +158,7 @@ def register():
             flash('Неверный код приглашения')
             return redirect(url_for('register'))
 
-        user = User(
-            username=username,
-            password_hash=generate_password_hash(password)
-        )
+        user = User(username=username, password_hash=generate_password_hash(password))
         db.session.add(user)
         db.session.commit()
 
@@ -176,7 +168,6 @@ def register():
 
         login_user(user)
         return redirect(url_for('index'))
-
     return render_template('login.html', register=True)
 
 
@@ -185,7 +176,6 @@ def register():
 def create_group():
     if request.method == 'POST':
         group_name = request.form.get('group_name', '').strip()
-
         if not group_name:
             flash('Введи название')
             return redirect(url_for('create_group'))
@@ -200,7 +190,6 @@ def create_group():
         db.session.commit()
 
         return redirect(url_for('chat', group_id=new_group.id))
-
     return render_template('create_group.html')
 
 
@@ -224,10 +213,7 @@ def register_new():
         db.session.add(new_group)
         db.session.commit()
 
-        user = User(
-            username=username,
-            password_hash=generate_password_hash(password)
-        )
+        user = User(username=username, password_hash=generate_password_hash(password))
         db.session.add(user)
         db.session.commit()
 
@@ -237,7 +223,6 @@ def register_new():
 
         login_user(user)
         return redirect(url_for('chat', group_id=new_group.id))
-
     return render_template('register_new.html')
 
 
@@ -246,7 +231,6 @@ def register_new():
 def join_group():
     if request.method == 'POST':
         invite_code = request.form.get('invite_code', '').strip()
-
         group = Group.query.filter_by(invite_code=invite_code).first()
         if not group:
             flash('Неверный код')
@@ -261,7 +245,6 @@ def join_group():
         db.session.commit()
 
         return redirect(url_for('chat', group_id=group.id))
-
     return render_template('join.html')
 
 
@@ -287,8 +270,7 @@ def chat(group_id):
         reactions_data[msg.id] = counts
 
     room = f'group_{group_id}'
-    online_ids = online_users.get(room, set())
-    online_count = len(online_ids)
+    online_count = len(online_users.get(room, set()))
 
     return render_template(
         'chat.html',
@@ -314,19 +296,15 @@ def logout():
 def on_join(data):
     if not current_user.is_authenticated:
         return
-
     group_id = data['group_id']
     membership = Membership.query.filter_by(user_id=current_user.id, group_id=group_id).first()
     if not membership:
         return
-
     room = f'group_{group_id}'
     join_room(room)
-
     if room not in online_users:
         online_users[room] = set()
     online_users[room].add(current_user.id)
-
     emit_online_list(room)
 
 
@@ -334,22 +312,17 @@ def on_join(data):
 def handle_typing(data):
     if not current_user.is_authenticated:
         return
-
     group_id = data['group_id']
     membership = Membership.query.filter_by(user_id=current_user.id, group_id=group_id).first()
     if not membership:
         return
-
     room = f'group_{group_id}'
-
     if room not in typing_users:
         typing_users[room] = {}
-
     if data.get('is_typing'):
         typing_users[room][current_user.id] = current_user.username
     else:
         typing_users[room].pop(current_user.id, None)
-
     emit('typing_updated', {
         'users': list(typing_users[room].values())
     }, to=room, include_self=False)
@@ -359,12 +332,10 @@ def handle_typing(data):
 def on_disconnect():
     if not current_user.is_authenticated:
         return
-
     for room in list(online_users.keys()):
         if current_user.id in online_users[room]:
             online_users[room].discard(current_user.id)
             emit_online_list(room)
-
     for room in list(typing_users.keys()):
         if current_user.id in typing_users[room]:
             del typing_users[room][current_user.id]
@@ -377,7 +348,6 @@ def on_disconnect():
 def handle_message(data):
     if not current_user.is_authenticated:
         return
-
     group_id = data['group_id']
     membership = Membership.query.filter_by(user_id=current_user.id, group_id=group_id).first()
     if not membership:
@@ -386,7 +356,6 @@ def handle_message(data):
     reply_to_id = data.get('reply_to_id')
     reply_to_text = None
     reply_to_user = None
-
     if reply_to_id:
         original = Message.query.get(reply_to_id)
         if original and original.group_id == group_id:
@@ -421,24 +390,16 @@ def handle_message(data):
 def handle_reaction(data):
     if not current_user.is_authenticated:
         return
-
     message_id = data['message_id']
     emoji = data['emoji']
-
     msg = Message.query.get(message_id)
     if not msg:
         return
-
     membership = Membership.query.filter_by(user_id=current_user.id, group_id=msg.group_id).first()
     if not membership:
         return
 
-    existing = Reaction.query.filter_by(
-        user_id=current_user.id,
-        message_id=message_id,
-        emoji=emoji
-    ).first()
-
+    existing = Reaction.query.filter_by(user_id=current_user.id, message_id=message_id, emoji=emoji).first()
     if existing:
         db.session.delete(existing)
         action = 'removed'
@@ -446,7 +407,6 @@ def handle_reaction(data):
         new_reaction = Reaction(emoji=emoji, user_id=current_user.id, message_id=message_id)
         db.session.add(new_reaction)
         action = 'added'
-
     db.session.commit()
 
     reactions = Reaction.query.filter_by(message_id=message_id).all()
@@ -468,16 +428,13 @@ def handle_reaction(data):
 def handle_delete(data):
     if not current_user.is_authenticated:
         return
-
     message_id = data['message_id']
     msg = Message.query.get(message_id)
     if not msg or msg.user_id != current_user.id:
         return
-
     group_id = msg.group_id
     db.session.delete(msg)
     db.session.commit()
-
     room = f'group_{group_id}'
     emit('message_deleted', {'message_id': message_id}, to=room)
 
@@ -486,20 +443,16 @@ def handle_delete(data):
 def handle_edit(data):
     if not current_user.is_authenticated:
         return
-
     message_id = data['message_id']
     new_text = data['text'].strip()
     if not new_text:
         return
-
     msg = Message.query.get(message_id)
     if not msg or msg.user_id != current_user.id:
         return
-
     msg.text = new_text
     msg.is_edited = True
     db.session.commit()
-
     room = f'group_{msg.group_id}'
     emit('message_edited', {'message_id': message_id, 'text': new_text}, to=room)
 
