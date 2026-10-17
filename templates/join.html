@@ -4,7 +4,7 @@
 <div class="login-screen">
     <div class="login-box">
         <h1 class="logo">Свои</h1>
-        <p class="subtitle">Здесь только свои</p>
+        <p class="subtitle">Войти в группу по коду</p>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}
@@ -16,23 +16,11 @@
             {% endif %}
         {% endwith %}
 
-        {% if register %}
-            <form method="POST" action="{{ url_for('register') }}">
-                <input type="text" name="username" placeholder="Твоё имя" required>
-                <input type="password" name="password" placeholder="Пароль" required>
-                <input type="text" name="invite_code" placeholder="Код приглашения" required>
-                <button type="submit">Войти в круг</button>
-                <p class="switch">Уже свой? <a href="{{ url_for('login') }}">Войти</a></p>
-            </form>
-        {% else %}
-            <form method="POST" action="{{ url_for('login') }}">
-                <input type="text" name="username" placeholder="Имя" required>
-                <input type="password" name="password" placeholder="Пароль" required>
-                <button type="submit">Войти</button>
-                <p class="switch">Ещё не свой? <a href="{{ url_for('register') }}">Войти по коду</a></p>
-                <p class="switch">Или <a href="{{ url_for('register_new') }}">создать свою группу</a></p>
-            </form>
-        {% endif %}
+        <form method="POST" action="{{ url_for('join_group') }}">
+            <input type="text" name="invite_code" placeholder="Код приглашения (SVOI-XXXX)" required>
+            <button type="submit">Войти</button>
+            <p class="switch"><a href="{{ url_for('index') }}">← Назад</a></p>
+        </form>
     </div>
 </div>
 {% endblock %}

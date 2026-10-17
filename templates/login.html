@@ -18,9 +18,7 @@
 
         {% if register %}
             <form method="POST" action="{{ url_for('register') }}">
-                <input type="text" name="username" placeholder="Твоё имя" required>
-                <input type="password" name="password" placeholder="Пароль" required>
-                <input type="text" name="invite_code" placeholder="Код приглашения" required>
+                <input type="text" name="invite_code" placeholder="Код приглашения (SVOI-XXXX или SVOI2025)" required>
                 <button type="submit">Войти в круг</button>
                 <p class="switch">Уже свой? <a href="{{ url_for('login') }}">Войти</a></p>
             </form>

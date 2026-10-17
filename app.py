@@ -35,7 +35,7 @@ login_manager.login_view = 'login'
 
 # ============ VAPID КЛЮЧИ ============
 # ⚠️ ВСТАВЬ СВОЙ ПРИВАТНЫЙ КЛЮЧ (из generate_keys.py)
-VAPID_PRIVATE_KEY = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ0p2SXExZm81ZERuV2Vaa1AKZDB1OGZyT0xvbFAyeEE2UHEwNjIzeVRxemd1aFJBTkNBQVMwdUhMYWdRelVWS0VGd2E5U0tSemJIaFhFSmdDYwpLTHI2Y2hwR2plWk1MMHhvcEhRSG45MG9qNUpCUzdFRnZscWY4aWhxQ1l0Sm1MYWEvTmdXL1dTUAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"
+VAPID_PRIVATE_KEY = "ТВОЙ_ПРИВАТНЫЙ_КЛЮЧ_MIG..."
 # ⚠️ ВСТАВЬ СВОЙ ПУБЛИЧНЫЙ КЛЮЧ
 VAPID_PUBLIC_KEY = "BLS4ctqBDNRUoQXBr1IpHNseFcQmAJwouvpyGkaN5kwvTGikdAef3SiPkkFLsQW-Wp_yKGoJi0mYtpr82Bb9ZI8"
 
@@ -166,20 +166,23 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        invite_code = request.form.get('invite_code')
-
-        if User.query.filter_by(username=username).first():
-            flash('Такое имя уже занято')
-            return redirect(url_for('register'))
+        invite_code = request.form.get('invite_code', '').strip()
 
         group = Group.query.filter_by(invite_code=invite_code).first()
         if not group:
             flash('Неверный код приглашения')
             return redirect(url_for('register'))
 
-        user = User(username=username, password_hash=generate_password_hash(password))
+        random_name = 'Гость_' + ''.join(random.choices(string.digits, k=4))
+        while User.query.filter_by(username=random_name).first():
+            random_name = 'Гость_' + ''.join(random.choices(string.digits, k=4))
+
+        random_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+
+        user = User(
+            username=random_name,
+            password_hash=generate_password_hash(random_password)
+        )
         db.session.add(user)
         db.session.commit()
 
@@ -218,7 +221,7 @@ def create_group():
 def register_new():
     if request.method == 'POST':
         group_name = request.form.get('group_name', '').strip()
-        username = request.form.get('username', '').strip()
+        username = request.form.get('username', '').strip()[:50]
         password = request.form.get('password', '')
 
         if not group_name or not username or not password:
@@ -431,11 +434,9 @@ def handle_message(data):
         'reply_to_user': reply_to_user
     }, to=room)
 
-    # ============ ОТПРАВКА ПУШЕЙ ============
     subscriptions = PushSubscription.query.filter(
         PushSubscription.user_id != current_user.id
     ).all()
-
     for sub in subscriptions:
         try:
             push.send(
