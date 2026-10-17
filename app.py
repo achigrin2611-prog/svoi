@@ -31,6 +31,25 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 
+# ============ ОНЛАЙН-ТРЕКИНГ ============
+online_users = {}  # {room: set(user_ids)}
+
+
+def emit_online_list(room):
+    """Отправляет список онлайн-юзеров в комнату"""
+    if room not in online_users:
+        return
+
+    user_ids = online_users[room]
+    users = User.query.filter(User.id.in_(user_ids)).all()
+    online_data = [{'id': u.id, 'username': u.username} for u in users]
+
+    emit('online_updated', {
+        'count': len(online_data),
+        'users': online_data
+    }, to=room)
+
+
 # ============ ГЕНЕРАЦИЯ КОДА ============
 def generate_invite_code():
     while True:
@@ -266,11 +285,17 @@ def chat(group_id):
             counts[r.emoji] = counts.get(r.emoji, 0) + 1
         reactions_data[msg.id] = counts
 
+    # Онлайн для этой комнаты
+    room = f'group_{group_id}'
+    online_ids = online_users.get(room, set())
+    online_count = len(online_ids)
+
     return render_template(
         'chat.html',
         group=group,
         messages=messages,
         users=users,
+        online_count=online_count,
         reactions_data=reactions_data
     )
 
@@ -287,12 +312,33 @@ def logout():
 # ============ СОКЕТЫ ============
 @socketio.on('join')
 def on_join(data):
+    if not current_user.is_authenticated:
+        return
+
     group_id = data['group_id']
     membership = Membership.query.filter_by(user_id=current_user.id, group_id=group_id).first()
     if not membership:
         return
+
     room = f'group_{group_id}'
     join_room(room)
+
+    if room not in online_users:
+        online_users[room] = set()
+    online_users[room].add(current_user.id)
+
+    emit_online_list(room)
+
+
+@socketio.on('disconnect')
+def on_disconnect():
+    if not current_user.is_authenticated:
+        return
+
+    for room in list(online_users.keys()):
+        if current_user.id in online_users[room]:
+            online_users[room].discard(current_user.id)
+            emit_online_list(room)
 
 
 @socketio.on('send_message')

@@ -16,6 +16,14 @@ if (window.currentGroupId) {
     socket.emit('join', { group_id: window.currentGroupId });
 }
 
+// ============ ОНЛАЙН-СПИСОК ============
+socket.on('online_updated', (data) => {
+    const onlineEl = document.getElementById('online-count');
+    if (onlineEl) {
+        onlineEl.textContent = data.count + ' онлайн';
+    }
+});
+
 // ============ ОТПРАВКА СООБЩЕНИЯ ============
 if (formEl) {
     formEl.addEventListener('submit', (e) => {
