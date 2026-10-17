@@ -716,3 +716,16 @@ body {
     font-size: 11px;
     color: var(--green);
 }
+/* ============ ПЕЧАТАЕТ ============ */
+.typing-status {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 2px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}

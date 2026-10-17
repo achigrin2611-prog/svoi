@@ -31,8 +31,9 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 
-# ============ ОНЛАЙН-ТРЕКИНГ ============
+# ============ ОНЛАЙН + ПЕЧАТАЕТ ============
 online_users = {}  # {room: set(user_ids)}
+typing_users = {}  # {room: {user_id: username}}
 
 
 def emit_online_list(room):
@@ -285,7 +286,6 @@ def chat(group_id):
             counts[r.emoji] = counts.get(r.emoji, 0) + 1
         reactions_data[msg.id] = counts
 
-    # Онлайн для этой комнаты
     room = f'group_{group_id}'
     online_ids = online_users.get(room, set())
     online_count = len(online_ids)
@@ -330,6 +330,31 @@ def on_join(data):
     emit_online_list(room)
 
 
+@socketio.on('typing')
+def handle_typing(data):
+    if not current_user.is_authenticated:
+        return
+
+    group_id = data['group_id']
+    membership = Membership.query.filter_by(user_id=current_user.id, group_id=group_id).first()
+    if not membership:
+        return
+
+    room = f'group_{group_id}'
+
+    if room not in typing_users:
+        typing_users[room] = {}
+
+    if data.get('is_typing'):
+        typing_users[room][current_user.id] = current_user.username
+    else:
+        typing_users[room].pop(current_user.id, None)
+
+    emit('typing_updated', {
+        'users': list(typing_users[room].values())
+    }, to=room, include_self=False)
+
+
 @socketio.on('disconnect')
 def on_disconnect():
     if not current_user.is_authenticated:
@@ -339,6 +364,13 @@ def on_disconnect():
         if current_user.id in online_users[room]:
             online_users[room].discard(current_user.id)
             emit_online_list(room)
+
+    for room in list(typing_users.keys()):
+        if current_user.id in typing_users[room]:
+            del typing_users[room][current_user.id]
+            emit('typing_updated', {
+                'users': list(typing_users[room].values())
+            }, to=room)
 
 
 @socketio.on('send_message')

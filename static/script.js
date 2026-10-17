@@ -3,26 +3,71 @@ const messagesEl = document.getElementById('messages');
 window.currentUserId = messagesEl ? parseInt(messagesEl.dataset.currentUser) : null;
 window.currentGroupId = messagesEl ? parseInt(messagesEl.dataset.groupId) : null;
 
-// ============ ПЕРЕМЕННАЯ ДЛЯ ОТВЕТА ============
+// ============ ПЕРЕМЕННЫЕ ============
 let replyingTo = null;
+let typingTimer = null;
+let isTyping = false;
 
 // ============ SOCKET IO ============
 const socket = io();
 const formEl = document.getElementById('message-form');
 const inputEl = document.getElementById('message-input');
 
-// ============ ВОЙТИ В КОМНАТУ ГРУППЫ ============
+// ============ ВОЙТИ В КОМНАТУ ============
 if (window.currentGroupId) {
     socket.emit('join', { group_id: window.currentGroupId });
 }
 
-// ============ ОНЛАЙН-СПИСОК ============
+// ============ ОНЛАЙН ============
 socket.on('online_updated', (data) => {
     const onlineEl = document.getElementById('online-count');
     if (onlineEl) {
         onlineEl.textContent = data.count + ' онлайн';
     }
 });
+
+// ============ ПЕЧАТАЕТ ============
+socket.on('typing_updated', (data) => {
+    const statusEl = document.getElementById('typing-status');
+    if (!statusEl) return;
+
+    if (data.users && data.users.length > 0) {
+        if (data.users.length === 1) {
+            statusEl.textContent = data.users[0] + ' печатает...';
+        } else if (data.users.length === 2) {
+            statusEl.textContent = data.users[0] + ' и ' + data.users[1] + ' печатают...';
+        } else {
+            statusEl.textContent = data.users.length + ' человека печатают...';
+        }
+        statusEl.style.display = 'inline';
+    } else {
+        statusEl.style.display = 'none';
+    }
+});
+
+// ============ ВВОД (typing) ============
+if (inputEl) {
+    inputEl.addEventListener('input', () => {
+        if (!window.currentGroupId) return;
+
+        if (!isTyping) {
+            isTyping = true;
+            socket.emit('typing', {
+                group_id: window.currentGroupId,
+                is_typing: true
+            });
+        }
+
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+            isTyping = false;
+            socket.emit('typing', {
+                group_id: window.currentGroupId,
+                is_typing: false
+            });
+        }, 2000);
+    });
+}
 
 // ============ ОТПРАВКА СООБЩЕНИЯ ============
 if (formEl) {
@@ -40,6 +85,15 @@ if (formEl) {
         inputEl.value = '';
         inputEl.focus();
         cancelReply();
+
+        if (isTyping) {
+            isTyping = false;
+            clearTimeout(typingTimer);
+            socket.emit('typing', {
+                group_id: window.currentGroupId,
+                is_typing: false
+            });
+        }
     });
 }
 
@@ -87,12 +141,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ============ АВТОСКРОЛЛ ВНИЗ ============
+// ============ АВТОСКРОЛЛ ============
 if (messagesEl) {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// ============ НЕ ПЕРЕЗАГРУЖАТЬ ПРИ ENTER ============
+// ============ ENTER ============
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && document.activeElement === inputEl) {
         e.preventDefault();
@@ -216,7 +270,7 @@ socket.on('message_deleted', (data) => {
     }
 });
 
-// ============ РЕДАКТИРОВАНИЕ СООБЩЕНИЙ ============
+// ============ РЕДАКТИРОВАНИЕ ============
 function editMessage() {
     if (!menuMessageId) return;
 
@@ -291,7 +345,7 @@ socket.on('message_edited', (data) => {
     }
 });
 
-// ============ ОТВЕТЫ НА СООБЩЕНИЯ ============
+// ============ ОТВЕТЫ ============
 function replyToMessage() {
     if (!menuMessageId) return;
 
@@ -338,7 +392,7 @@ function scrollToMessage(messageId) {
     }
 }
 
-// ============ КОПИРОВАТЬ КОД ПРИГЛАШЕНИЯ ============
+// ============ КОПИРОВАТЬ КОД ============
 function copyInviteCode(code) {
     navigator.clipboard.writeText(code).then(() => {
         const toast = document.createElement('div');
@@ -364,7 +418,7 @@ function copyInviteCode(code) {
     });
 }
 
-// ============ ДОЛГИЙ ТАП ДЛЯ МОБИЛЬНЫХ ============
+// ============ ДОЛГИЙ ТАП ============
 function attachLongPress(msg) {
     let touchTimer = null;
     msg.addEventListener('touchstart', (e) => {
@@ -381,7 +435,7 @@ function attachLongPress(msg) {
 
 document.querySelectorAll('.message').forEach(attachLongPress);
 
-// ============ PWA: РЕГИСТРАЦИЯ SERVICE WORKER ============
+// ============ PWA: SERVICE WORKER ============
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/static/sw.js')
