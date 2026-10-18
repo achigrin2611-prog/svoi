@@ -1,5 +1,4 @@
 import eventlet
-
 eventlet.monkey_patch(socket=True, select=True, time=True, thread=True, os=True)
 
 from flask import Flask, render_template, redirect, url_for, request, flash, abort, jsonify
@@ -48,7 +47,6 @@ push = WebPush(
 online_users = {}
 typing_users = {}
 
-
 def emit_online_list(room):
     if room not in online_users:
         return
@@ -60,14 +58,12 @@ def emit_online_list(room):
         'users': online_data
     }, to=room)
 
-
 # ============ ГЕНЕРАЦИЯ КОДА ============
 def generate_invite_code():
     while True:
         code = 'SVOI-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
         if not Group.query.filter_by(invite_code=code).first():
             return code
-
 
 # ============ МОДЕЛИ ============
 class User(UserMixin, db.Model):
@@ -77,13 +73,11 @@ class User(UserMixin, db.Model):
     is_online = db.Column(db.Boolean, default=False)
     memberships = db.relationship('Membership', backref='user', cascade='all, delete-orphan')
 
-
 class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     invite_code = db.Column(db.String(20), unique=True, nullable=False)
     memberships = db.relationship('Membership', backref='group', cascade='all, delete-orphan')
-
 
 class Membership(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -91,7 +85,6 @@ class Membership(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
     joined_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     __table_args__ = (db.UniqueConstraint('user_id', 'group_id', name='unique_membership'),)
-
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -106,14 +99,12 @@ class Message(db.Model):
     user = db.relationship('User', backref='messages')
     reactions = db.relationship('Reaction', backref='message', cascade='all, delete-orphan')
 
-
 class Reaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     emoji = db.Column(db.String(10), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
     user = db.relationship('User', backref='reactions')
-
 
 class PushSubscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -122,12 +113,10 @@ class PushSubscription(db.Model):
     p256dh = db.Column(db.Text, nullable=False)
     auth = db.Column(db.Text, nullable=False)
 
-
 # ============ ЗАГРУЗКА ПОЛЬЗОВАТЕЛЯ ============
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
 
 # ============ РОУТЫ ============
 @app.route('/')
@@ -146,7 +135,6 @@ def index():
             })
     return render_template('groups.html', groups=groups)
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -162,25 +150,29 @@ def login():
             flash('Неверный логин или пароль')
     return render_template('login.html')
 
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        username = request.form.get('username', '').strip()[:50]
         invite_code = request.form.get('invite_code', '').strip()
+
+        if not username:
+            flash('Введи имя')
+            return redirect(url_for('register'))
+
+        if User.query.filter_by(username=username).first():
+            flash('Такое имя уже занято')
+            return redirect(url_for('register'))
 
         group = Group.query.filter_by(invite_code=invite_code).first()
         if not group:
             flash('Неверный код приглашения')
             return redirect(url_for('register'))
 
-        random_name = 'Гость_' + ''.join(random.choices(string.digits, k=4))
-        while User.query.filter_by(username=random_name).first():
-            random_name = 'Гость_' + ''.join(random.choices(string.digits, k=4))
-
         random_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
         user = User(
-            username=random_name,
+            username=username,
             password_hash=generate_password_hash(random_password)
         )
         db.session.add(user)
@@ -192,8 +184,8 @@ def register():
 
         login_user(user)
         return redirect(url_for('index'))
-    return render_template('login.html', register=True)
 
+    return render_template('login.html', register=True)
 
 @app.route('/create_group', methods=['GET', 'POST'])
 @login_required
@@ -215,7 +207,6 @@ def create_group():
 
         return redirect(url_for('chat', group_id=new_group.id))
     return render_template('create_group.html')
-
 
 @app.route('/register_new', methods=['GET', 'POST'])
 def register_new():
@@ -249,7 +240,6 @@ def register_new():
         return redirect(url_for('chat', group_id=new_group.id))
     return render_template('register_new.html')
 
-
 @app.route('/join', methods=['GET', 'POST'])
 @login_required
 def join_group():
@@ -270,7 +260,6 @@ def join_group():
 
         return redirect(url_for('chat', group_id=group.id))
     return render_template('join.html')
-
 
 @app.route('/chat/<int:group_id>')
 @login_required
@@ -306,7 +295,6 @@ def chat(group_id):
         vapid_public_key=VAPID_PUBLIC_KEY
     )
 
-
 @app.route('/logout')
 @login_required
 def logout():
@@ -314,7 +302,6 @@ def logout():
     db.session.commit()
     logout_user()
     return redirect(url_for('login'))
-
 
 @app.route('/subscribe_push', methods=['POST'])
 @login_required
@@ -339,7 +326,6 @@ def subscribe_push():
         db.session.commit()
     return jsonify({"ok": True})
 
-
 # ============ СОКЕТЫ ============
 @socketio.on('join')
 def on_join(data):
@@ -355,7 +341,6 @@ def on_join(data):
         online_users[room] = set()
     online_users[room].add(current_user.id)
     emit_online_list(room)
-
 
 @socketio.on('typing')
 def handle_typing(data):
@@ -376,7 +361,6 @@ def handle_typing(data):
         'users': list(typing_users[room].values())
     }, to=room, include_self=False)
 
-
 @socketio.on('disconnect')
 def on_disconnect():
     if not current_user.is_authenticated:
@@ -391,7 +375,6 @@ def on_disconnect():
             emit('typing_updated', {
                 'users': list(typing_users[room].values())
             }, to=room)
-
 
 @socketio.on('send_message')
 def handle_message(data):
@@ -455,7 +438,6 @@ def handle_message(data):
                 db.session.delete(sub)
                 db.session.commit()
 
-
 @socketio.on('toggle_reaction')
 def handle_reaction(data):
     if not current_user.is_authenticated:
@@ -493,7 +475,6 @@ def handle_reaction(data):
         'emoji': emoji
     }, to=room)
 
-
 @socketio.on('delete_message')
 def handle_delete(data):
     if not current_user.is_authenticated:
@@ -507,7 +488,6 @@ def handle_delete(data):
     db.session.commit()
     room = f'group_{group_id}'
     emit('message_deleted', {'message_id': message_id}, to=room)
-
 
 @socketio.on('edit_message')
 def handle_edit(data):
@@ -526,7 +506,6 @@ def handle_edit(data):
     room = f'group_{msg.group_id}'
     emit('message_edited', {'message_id': message_id, 'text': new_text}, to=room)
 
-
 # ============ ИНИЦИАЛИЗАЦИЯ БД ============
 def init_db():
     with app.app_context():
@@ -536,7 +515,6 @@ def init_db():
             db.session.add(test_group)
             db.session.commit()
             print('✅ Создана тестовая группа: SVOI2025')
-
 
 # ============ ЗАПУСК ============
 if __name__ == '__main__':
